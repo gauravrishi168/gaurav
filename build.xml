@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <project name="Vert" default="createWar">
 
-	<!-- Written For New JBoss Server -->
+	<!-- Written For New JBoss Server -- This is gaurav>
 
 	<!-- Reading Environment variables to be used-->
 	<property environment="env" />
