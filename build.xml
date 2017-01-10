@@ -1,0 +1,225 @@
+<?xml version="1.0"?>
+<project name="Vert" default="createWar">
+
+
+
+
+	<property environment="env" />
+
+
+	<property name="deploy.env" value="${env.PROJECT_ENV}" />
+	<property file="${deploy.env}.build.properties"/>
+	<property name="jboss.home" value="${env.JBOSS_HOME}" />
+	<property name="jdk.home" value="${env.JAVA_HOME}" />
+
+
+	<property name="jboss.server.path" value="${jboss.home}/standalone/deployments" />
+	<property name="archive.path" value="../egovarchive" />
+
+
+	<property name="app.war.name" value="vert" />
+	<property name="app.lib.dir" value="lib" />
+	<property name="src.dir" value="src/java" />
+	<property name="src.webapp.dir" value="src/webapp/java" />
+	<property name="build.dir" value="build" />
+	<property name="conf.dir" value="conf" />
+	<property name="webapp.src.dir" value="src/webapp" />
+
+
+	<target name="init">
+		<mkdir dir="${build.dir}" />
+		
+		<tstamp>
+			<format property="DATETIME" pattern="yyMMdd_HHmmss" />
+		</tstamp>
+
+	</target>
+
+	
+	<target name="clean">
+		<delete dir="${build.dir}">
+		</delete>
+	</target>
+
+	
+	<target name="copy-properties">
+		<copy todir="${build.dir}">
+			<fileset dir="${conf.dir}">
+				<include name="*.properties" />
+				<include name="**/*.xml" />
+			</fileset>
+			<fileset dir="${src.dir}">
+				<include name="*.properties" />
+				<include name="**/*.xml" />
+			</fileset>
+		</copy>
+		<copy verbose="true" tofile="${build.dir}/vert.properties" file="${conf.dir}/vert.properties" />
+	</target>
+
+	
+	<target name="compile-noclean" depends="init,copy-properties">
+		<javac encoding="ISO-8859-1" destdir="${build.dir}" debug="on" target="1.6">
+
+			<src path="${src.dir}" />
+			<src path="${src.webapp.dir}" />
+
+			<classpath>
+				<fileset dir="${app.lib.dir}">
+					<include name="*.jar" />
+				</fileset>
+			</classpath>
+		</javac>
+
+		<copy todir="${build.dir}">
+			<fileset dir="${conf.dir}">
+				<include name="*.properties" />
+				<include name="**/*.xml" />
+
+			</fileset>
+			<fileset dir="${src.dir}">
+				<include name="*.properties" />
+				<include name="**/*.xml" />
+			</fileset>
+		</copy>
+	</target>
+
+	
+	<target name="compile" depends="clean,compile-noclean"/>
+
+	
+	<target name="deploy" depends="war,undeploy">
+		<copy file="build/${app.war.name}.war" todir="${jboss.server.path}">
+		</copy>
+	</target>
+
+	
+	<target name="undeploy">
+		<delete file="${jboss.server.path}/${app.war.name}.war"/>
+		<delete file="${jboss.server.path}/${app.war.name}.war.deployed"/>
+	</target>
+
+
+	<target name="createWar" depends="compile,undeploy">
+		<war destfile="${jboss.server.path}/${app.war.name}.war" webxml="${webapp.src.dir}/WEB-INF/web.xml" update="true">
+			<fileset dir="${webapp.src.dir}">
+				<exclude name="**/javax.servlet.jar" />
+				<exclude name="java/**" />
+				<exclude name="WEB-INF/web.xml" />
+			</fileset>
+			<classes prefix="WEB-INF/classes" dir="${build.dir}">
+			</classes>
+			<classes prefix="WEB-INF/lib" dir="${app.lib.dir}">
+			</classes>
+			
+		</war>
+	</target>
+
+	<presetdef name="jboss-cli">
+		<java jar="${jboss.home}/jboss-modules.jar" fork="true" >
+			<arg line="-mp ${jboss.home}/modules org.jboss.as.cli -c" />
+		</java>
+	</presetdef>
+
+	<target name="jboss.start" description="Start the JBoss server." depends="init">
+		<exec executable="${jboss.home}/bin/standalone.bat"/>
+	</target>
+
+	<target name="startJboss" depends="jboss.start" description="Start JBoss 7.1.1">
+		<jboss-cli failonerror="true">
+			<arg line="'controller=3.209.1.239:9999'"/>
+			<arg line="':start'" />
+		</jboss-cli>
+	</target>
+
+	<target name="stopJboss" description="Stop JBoss 7.1.1">
+		<jboss-cli failonerror="true">
+			<arg line="'controller=3.209.1.239:9999'"/>
+			<arg line="':shutdown'" />
+		</jboss-cli>
+	</target>
+
+	<target name="restartJboss" description="Re-Start JBoss 7.1.1">
+		<jboss-cli failonerror="true">
+			<arg line="'controller=3.209.1.239:9999'"/>
+			<arg line="':shutdown(restart=true)'" />
+		</jboss-cli>
+	</target>
+
+	
+	<target name="copy-to-jboss" depends="compile,undeploy">
+
+		<mkdir dir="${jboss.server.path}/${app.war.name}.war" />
+		<copy todir="${jboss.server.path}/${app.war.name}.war">
+			<fileset dir="${webapp.src.dir}">
+				<exclude name="**/javax.servlet.jar" />
+			</fileset>
+
+		</copy>
+		<copy todir="${jboss.server.path}/${app.war.name}.war/WEB-INF/classes">
+			<fileset dir="${build.dir}">
+			</fileset>
+		</copy>
+		<copy todir="${jboss.server.path}/${app.war.name}.war/WEB-INF/lib">
+			<fileset dir="${app.lib.dir}">
+				<exclude name="javax.servlet.jar" />
+			</fileset>
+		</copy>
+		<antcall target="copy-arch-to-jboss">
+		</antcall>
+	</target>
+
+	
+	<target name="copy-arch-to-jboss">
+		<copy todir="${jboss.server.path}/${app.war.name}.war">
+			<fileset dir="${archive.path}">
+				<include name="**/*.xls" />
+				<include name="**/*.xml" />
+				<include name="**/*.pdf" />
+			</fileset>
+		</copy>
+	</target>
+
+	<target name="clean-jboss">
+		<delete dir="${jboss.home}/standalone/tmp" />
+	</target>
+
+
+	<target name="war" depends="clean,init,compile">
+		<mkdir dir="${backup.path}" />
+		<war destfile="build/${app.war.name}.war" webxml="${webapp.src.dir}/WEB-INF/web.xml">
+			<fileset dir="${webapp.src.dir}">
+				<exclude name="**/javax.servlet.jar" />
+				<exclude name="java/**" />
+				<exclude name="WEB-INF/web.xml" />
+			</fileset>
+			<classes prefix="WEB-INF/classes" dir="${build.dir}">
+			</classes>
+			<classes prefix="WEB-INF/lib" dir="${app.lib.dir}">
+			</classes>
+		</war>
+	</target>
+
+	<target name="jboss.restart" description="Restart the JBoss server." depends="jboss.stop">
+		<antcall target="jboss.start" />
+	</target>
+
+	<target name="jboss.start.debug" description="Start the JBoss server in debug mode." depends="init">
+		<java jar="${jboss.home}/bin/run.jar" fork="true">
+			<arg line="-c ${jboss.instance.name}" />
+			<jvmarg value="-Xms256m" />
+			<jvmarg value="-Xmx1g" />
+			<jvmarg value="-Xdebug" />
+			<jvmarg value="-Xnoagent" />
+			<jvmarg value="-Djava.compiler=NONE" />
+			<jvmarg value="-Xrunjdwp:transport=dt_socket,address=8787,server=y,suspend=y" />
+		</java>
+	</target>
+
+
+	<target name="jboss.stop" description="Stop the JBoss server.">
+		<java jar="${jboss.home}/bin/shutdown.jar" fork="true">
+			<arg line=" -s jnp://localhost:${jboss.jnp.port}" />
+		</java>
+	</target>
+
+</project>
